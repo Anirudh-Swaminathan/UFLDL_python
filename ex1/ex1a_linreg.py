@@ -1,6 +1,7 @@
 import numpy as np
 import time
 import scipy.optimize as opt
+import matplotlib.pyplot as plt
 
 def linCost(theta, X, y):
     """Cost function for the linear regression, which has to be minimized
@@ -57,7 +58,7 @@ def linCostVec(theta, X, y):
     return J
 
 def linGradVec(theta, X, y):
-    """Vecctorized implementation of the gradient for the cost function
+    """Vectorized implementation of the gradient for the cost function
 
     @param theta The weights
     @param X The training set features
@@ -135,6 +136,17 @@ def main():
         pred_prices = X.dot(optTheta).flatten()
         err = np.sqrt(np.mean((pred_prices - act_prices)**2))
         print "RMS",dataset,"error: %.6f" % err
+
+    # Plot and save the data points
+    plt.figure(figsize=(10, 8))
+    plt.scatter(np.arange(test_Y.size), sorted(test_Y), c='r', alpha=0.5, marker='x', label="actual")
+    plt.scatter(x=np.arange(test_Y.size), y=sorted(test_X.dot(optTheta).flatten()), c='b', alpha=0.5, marker='x',label="predicted")
+    plt.legend(loc='upper left')
+    plt.ylabel('House price ($1000s)')
+    plt.xlabel('House #')
+    plt.savefig('ex1a_linreg.png', bbox_inches='tight')
+    plt.show()
+    print "Finished plotting the graph"
 
 if __name__ == '__main__':
     main()

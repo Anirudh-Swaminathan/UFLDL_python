@@ -100,6 +100,9 @@ ENV/
 # mkdocs documentation
 /site
 
+# The datasets
+data/
+
 # The output files of all the programs
 # This is to avoid documenting changes every time the programs run
 ex1_linreg.png

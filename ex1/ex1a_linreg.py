@@ -2,6 +2,7 @@ import numpy as np
 import time
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
+import os
 
 def linCost(theta, X, y):
     """Cost function for the linear regression, which has to be minimized
@@ -71,8 +72,10 @@ def linGradVec(theta, X, y):
     return grad
 
 def main():
+    dir_name = os.path.dirname(__file__)
+    file_name = os.path.join(dir_name, '../data/housing.data')
     # Load the data from housing.data
-    data = np.genfromtxt(fname="housing.data") #, delimiter=(7, 5, 6, 1, 6, 6, 6, 7, 2, 5, 5, 6, 5, 5))
+    data = np.genfromtxt(fname=file_name) #, delimiter=(7, 5, 6, 1, 6, 6, 6, 7, 2, 5, 5, 6, 5, 5))
     #print data[:10, :]
 
     # Insert the x0 term (=1) for all the m training examples
@@ -144,7 +147,8 @@ def main():
     plt.legend(loc='upper left')
     plt.ylabel('House price ($1000s)')
     plt.xlabel('House #')
-    plt.savefig('ex1a_linreg.png', bbox_inches='tight')
+    op_f_name = os.path.join(dir_name, '../outputs/ex1a_linreg.png')
+    plt.savefig(op_f_name, bbox_inches='tight')
     plt.show()
     print "Finished plotting the graph"
 

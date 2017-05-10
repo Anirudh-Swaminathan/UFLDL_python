@@ -5,6 +5,7 @@ import numpy as np
 import time
 import scipy.optimize as opt
 from scipy.special import expit
+from random import randint
 
 def feature_normalize(train, test):
     """Normalize the features to have 0 mean and unit standard deviation
@@ -118,6 +119,32 @@ def logGradVec(theta, X, y):
     grad = np.transpose(X).dot(h_x - y)
     return grad
 
+def grad_check(t0, X, y, num_iters=30):
+    """Check the gradient with numerically computed one, and return average error
+
+    @param t0 The initial theta value
+    @param X The training set features
+    @param y The training set labels(values)
+
+    @return av_er The average error in the computation of the gradient
+    """
+    epsilon = 10**-4
+    s_er = 0
+    n = t0.shape[0]
+    for i in range(num_iters):
+        j = randint(0, n-1)
+        tp = np.copy(t0)
+        tm = np.copy(t0)
+        tp[j] = tp[j] + epsilon
+        tm[j] = tm[j] - epsilon
+        Jtp = logCostVec(theta=tp, X=X, y=y)
+        Jtm = logCostVec(theta=tm, X=X, y=y)
+        g_est = (Jtp - Jtm) / (2.0 * epsilon)
+        g_act = logGradVec(theta=t0, X=X, y=y)
+        s_er += abs(g_act[j] - g_est)
+    av_er = s_er*1.0/num_iters
+    return av_er
+
 def bin_class_accuracy(theta, X, y):
     """Function to Calculate the accuracy of binary classification
 
@@ -184,6 +211,10 @@ def main():
     """
     # Initialize random weights
     theta = np.random.rand(n)*0.001
+
+    # Check the gradient before the optimization with the vectorized cost function
+    erro = grad_check(t0=theta, num_iters=100, X=train_X, y=train_Y)
+    print "\nThe average error in the gradients is %.6f\n" % (erro)
 
     # Perform the optimizations
     t0 = time.time()

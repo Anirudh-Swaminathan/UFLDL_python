@@ -3,6 +3,7 @@ import time
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
 import os
+from random import randint
 
 def linCost(theta, X, y):
     """Cost function for the linear regression, which has to be minimized
@@ -71,6 +72,32 @@ def linGradVec(theta, X, y):
     grad = np.transpose(X).dot(h_x - y.flatten())
     return grad
 
+def grad_check(t0, X, y, num_iters=30):
+    """Check the gradient with numerically computed one, and return average error
+
+    @param t0 The initial theta value
+    @param X The training set features
+    @param y The training set labels(values)
+
+    @return av_er The average error in the computation of the gradient
+    """
+    epsilon = 10**-4
+    s_er = 0
+    n = t0.shape[0]
+    for i in range(num_iters):
+        j = randint(0, n-1)
+        tp = np.copy(t0)
+        tm = np.copy(t0)
+        tp[j] = tp[j] + epsilon
+        tm[j] = tm[j] - epsilon
+        Jtp = linCostVec(theta=tp, X=X, y=y)
+        Jtm = linCostVec(theta=tm, X=X, y=y)
+        g_est = (Jtp - Jtm) / (2.0 * epsilon)
+        g_act = linGradVec(theta=t0, X=X, y=y)
+        s_er += abs(g_act[j] - g_est)
+    av_er = s_er*1.0/num_iters
+    return av_er
+
 def main():
     dir_name = os.path.dirname(__file__)
     file_name = os.path.join(dir_name, '../data/housing.data')
@@ -120,6 +147,10 @@ def main():
     # Repeat the above procedure for the Vectorized implementation
     # Initialize random weights
     theta = np.random.rand(n)
+
+    # Check the gradient before the optimization with the vectorized cost function
+    erro = grad_check(t0=theta, num_iters=100, X=train_X, y=train_Y)
+    print "\nThe average error in the gradients is %.6f\n" % (erro)
 
     # Perform the optimizations
     t0 = time.time()

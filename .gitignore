@@ -105,6 +105,6 @@ data/
 
 # The output files of all the programs
 # This is to avoid documenting changes every time the programs run
-outputs/ex1_linreg.png
+ex1a_linreg.png
 
 # End of https://www.gitignore.io/api/python

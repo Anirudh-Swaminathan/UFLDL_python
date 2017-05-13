@@ -46,14 +46,14 @@ def softCostVec(theta, X, y):
     """
     m,n = X.shape
     num_classes = theta.shape[0]/n
-    np.reshape(a=theta, newshape=(n, num_classes-1))
+    theta = np.reshape(a=theta, newshape=(n, num_classes))
 
     # Perform one-hot encoding for each of the m training examples
     ty = one_hot(y=y, num_labels=10)
 
     # Calculate the hypothesis
     epow = np.exp(X.dot(theta))
-    epow = np.insert(epow, epow.shape[1], 1, axis=1)
+    #epow = np.insert(epow, epow.shape[1], 1, axis=1)
     h_x = epow / epow.sum(axis=1)[:, None]
     J = np.sum(np.multiply(ty, np.log(h_x)))
     J = -1.0 * J
@@ -70,7 +70,7 @@ def softGradVec(theta, X, y):
     """
     m,n = X.shape
     num_classes = theta.shape[0]/n
-    np.reshape(a=theta, newshape=(n, num_classes-1))
+    theta = np.reshape(a=theta, newshape=(n, num_classes))
     grad = np.zeros(theta.shape)
 
     # Perform one-hot encoding for each of the m training examples
@@ -78,35 +78,23 @@ def softGradVec(theta, X, y):
 
     # Calculate the hypothesis
     epow = np.exp(X.dot(theta))
-    epow = np.insert(epow, epow.shape[1], 1, axis=1)
+    #epow = np.insert(epow, epow.shape[1], 1, axis=1)
     grad = -1.0 * np.transpose(X).dot(ty - epow)
-    
+    #grad = np.delete(grad, grad.shape[1]-1, axis=1)
+    grad = grad.flatten()
+    return grad
 
-def grad_check(t0, X, y, num_iters=30):
-    """Check the gradient with numerically computed one, and return average error
+def multi_class_accuracy(theta, X, y):
+    """Function to Calculate the accuracy of Multiclass classification
 
-    @param t0 The initial theta value
-    @param X The training set features
-    @param y The training set labels(values)
+    @param theta The weights
+    @param X The features
+    @param y The labels(values)
 
-    @return av_er The average error in the computation of the gradient
+    @return acc The accuracy of classification
     """
-    epsilon = 10**-4
-    s_er = 0
-    n = t0.shape[0]
-    for i in range(num_iters):
-        j = randint(0, n-1)
-        tp = np.copy(t0)
-        tm = np.copy(t0)
-        tp[j] = tp[j] + epsilon
-        tm[j] = tm[j] - epsilon
-        Jtp = softCostVec(theta=tp, X=X, y=y)
-        Jtm = softCostVec(theta=tm, X=X, y=y)
-        g_est = (Jtp - Jtm) / (2.0 * epsilon)
-        g_act = softGradVec(theta=t0, X=X, y=y)
-        s_er += abs(g_act[j] - g_est)
-    av_er = s_er*1.0/num_iters
-    return av_er
+    correct = np.sum(np.argmax(X.dot(theta), axis=1) == y)
+    return correct*1.0 / y.size
 
 def main():
     # Load the data from the data file
@@ -130,10 +118,32 @@ def main():
     num_classes = 10
 
     # Initialize random weights
-    theta = np.random.rand(n, num_classes-1)*0.001
+    theta = np.random.rand(n, num_classes)*0.001
+    print theta.shape
 
     # Perform the optimizations
+    t0 = time.time()
+    optTheta = opt.minimize(
+    fun=softCostVec,
+    x0=theta.flatten(),
+    args=(train_X, train_Y),
+    method='L-BFGS-B', jac=softGradVec,
+    options={'maxiter' : 100, 'disp' : True})
+    t1 = time.time()
+    print "Optimization took %.7f seconds.\n" % (t1-t0)
+    optTheta = optTheta.x
 
+    # Reshape the theta to nxk
+    optTheta = np.reshape(a=optTheta, newshape=(n, num_classes))
+
+    # Use 0 for the final class to make theta nxk
+    #optTheta = np.insert(optTheta, optTheta.shape[1], 0, axis=1)
+
+    # Print the training and testing accuracy
+    tr_acc = multi_class_accuracy(optTheta, train_X, train_Y)
+    print "Training accuracy: %2.2f%%\n" % (100.0*tr_acc)
+    te_acc = multi_class_accuracy(optTheta, test_X, test_Y)
+    print "Testing accuracy: %2.2f%%\n" % (100.0*te_acc)
 
 if __name__ == '__main__':
     main()

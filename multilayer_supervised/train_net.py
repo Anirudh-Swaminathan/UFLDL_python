@@ -4,6 +4,7 @@ import numpy as np
 from mlxtend.preprocessing import one_hot
 import time
 import scipy.optimize as opt
+from scipy.stats import hypsecant as sechfun
 
 def initialize_weights(ei):
     """Function to randomly initialize the weights of all the layers
@@ -39,6 +40,7 @@ def unroll_stack(stac):
     for d in range(len(stac)):
         retun.extend(stac[d]['W'].flatten())
         retun.extend(stac[d]['b'].flatten())
+    #print len(retun)
     return np.array(retun)
 
 def restack(params, ei):
@@ -68,6 +70,7 @@ def restack(params, ei):
         retsta[d]['b'] = np.reshape(params[cur_pos:cur_pos+blen], (num_units, 1))
         cur_pos += blen
         prev_size = num_units
+    #print num_layers, len(retsta), retsta[0]['W'].shape, retsta[0]['b'].shape, retsta[1]['W'].shape, retsta[1]['b'].shape
     return retsta
 
 def actFun(z, ac):
@@ -79,11 +82,37 @@ def actFun(z, ac):
     @return The final activation
     """
     if ac == 'logistic':
+        #print sigmoid(z)[:2][:2]
         return sigmoid(z)
     elif ac == 'tanh':
+        #print np.tanh(z)[:2][:2]
         return np.tanh(z)
     else:
+        #print np.maximum(np.zeros(z.shape), z)[:2][:2]
         return np.maximum(np.zeros(z.shape), z)
+
+def safe_log(x, nan_substitute=-1e+4):
+    l = np.log(x)
+    l[np.logical_or(np.isnan(l), np.isinf(l))] = nan_substitute
+    return l
+
+def der(z, ac):
+    """Function to calculate the derivative of the desired activation Function
+
+    @param z The parameter of the function
+    @param ac The activation function type
+
+    @return The final derivative
+    """
+    if ac=='logistic':
+        #print sigmoid(z)*(1-sigmoid(z))[:2][:2]
+        return sigmoid(z)*(1-sigmoid(z))
+    elif ac=='tanh':
+        #print sechfun(x)**2.0[:2][:2]
+        return sechfun(z)**2.0
+    else:
+        #print np.maximum(np.zeros(z.shape), z>0)[:2][:2]
+        return np.maximum(np.zeros(z.shape), z>0)
 
 def forwardProp(unroll_theta, ei, X, y):
     """Function to perform forward propagation
@@ -96,9 +125,11 @@ def forwardProp(unroll_theta, ei, X, y):
     @return hAct the activation of all layers
     """
     stack = restack(unroll_theta, ei=ei)
+    #print len(stack)
     numHidden = len(ei['layer_sizes']) - 1
+    #print numHidden
     hAct = []
-    for i in range(numHidden+1):
+    for l in range(numHidden+1):
         if l==0:
             xh = np.dot(stack[l]['W'], np.transpose(X))
             xh = xh + np.reshape(stack[l]['b'], (stack[l]['b'].shape[0], 1))
@@ -112,6 +143,7 @@ def forwardProp(unroll_theta, ei, X, y):
             xh = np.dot(stack[l]['W'], hAct[l-1])
             xh = xh + np.reshape(stack[l]['b'], (stack[l]['b'].shape[0], 1))
             hAct.append(actFun(xh, ei['activation_fun']))
+    #print len(hAct)
     return hAct
 
 def costFunc(unroll_theta, ei, X, y):
@@ -125,20 +157,86 @@ def costFunc(unroll_theta, ei, X, y):
     @return J The cost of the neural network
     """
     stack = restack(unroll_theta, ei=ei)
+    #print len(stack)
+    numHidden = len(ei['layer_sizes']) - 1
+    #print numHidden
+    hAct = forwardProp(unroll_theta=unroll_theta, ei=ei, X=X, y=y)
+    #print hAct[0].shape
+    #print hAct[1].shape
+    #print hAct[:5][:5]
+    ty = one_hot(y=y, num_labels=10)
+    ty = np.transpose(ty)
+    m = X.shape[0]
+    #print m
+    #print ty.shape
+    #print hAct[-1].shape
+    crossEntropyCost = -1.0 * sum(sum(ty * safe_log(hAct[-1]))) / m
+    regCost = 0
+    for i in range(len(ei['layer_sizes'])):
+        regCost += ei['lambda'] / 2 * sum(sum(stack[i]['W']**2.0))
+    #print crossEntropyCost, regCost
+    J = crossEntropyCost + regCost
+    return J
+
+def gradFunc(unroll_theta, ei, X, y):
+    """Function to calculate the gradient of the cost Function
+
+    @param unroll_theta The unrolled parameters of the neural network
+    @param ei The network configuration
+    @param X The training samples
+    @param y The training labels
+
+    @return grad The unrolled gradient
+    """
+    stack = restack(unroll_theta, ei=ei)
     numHidden = len(ei['layer_sizes']) - 1
     hAct = forwardProp(unroll_theta=unroll_theta, ei=ei, X=X, y=y)
     ty = one_hot(y=y, num_labels=10)
     ty = np.transpose(ty)
+    sDel = [None] * (numHidden+1)
     m = X.shape[0]
-    crossEntropyCost = -1.0 * sum(sum(ty * np.log(hAct[-1]))) / m
-    regCost = 0
-    for i in range(len(ei['layer_sizes'])):
-        regCost += ei['lambda'] / 2 * sum(sum(stack[i]['W']**2.0))
-    J = crossEntropyCost + regCost
-    return J
+    for i in range(numHidden, -1, -1):
+        if i==numHidden:
+            fi = -1.0 * (ty - hAct[i])
+            sDel[i] = fi
+        elif i==0:
+            znl = np.dot(stack[i]['W'], np.transpose(X))
+            znl = znl + np.reshape(stack[i]['b'], (stack[i]['b'].shape[0], 1))
+            de = der(znl, ei['activation_fun'])
+            sDel[i] = np.dot(np.transpose(stack[i+1]['W']), sDel[i+1]) * de
+        else:
+            znl = np.dot(stack[i]['W'], hAct[i-1])
+            znl = znl + np.reshape(stack[i]['b'], (stack[i]['b'].shape[0], 1))
+            de = der(znl, ei['activation_fun'])
+            sDel[i] = np.dot(np.transpose(stack[i+1]['W']), sDel[i+1]) * de
+    gradStack = []
+    for i in range(numHidden+1):
+        ap = {}
+        gradStack.append(ap)
+        if i==0:
+            gradStack[i]['W'] = 1.0 / m * np.dot(sDel[i], X) + ei['lambda']*stack[i]['W']
+            gradStack[i]['b'] = 1.0 / m * np.sum(sDel[i], 1)
+        else:
+            gradStack[i]['W'] = 1.0 / m * np.dot(sDel[i], np.transpose(hAct[i-1])) + ei['lambda']*stack[i]['W']
+            gradStack[i]['b'] = 1.0 / m * np.sum(sDel[i], 1)
+    grad = unroll_stack(gradStack)
+    return grad
 
-def gradFunc():
-    pass
+def neural_net_acc(optTheta, ei, X, y):
+    """Function to calculate the accuracy of the training and testing sets
+
+    @param optTheta The trained unrolled weights
+    @param ei The network configuration
+    @param X The training/testing data
+    @param y The training/testing labels
+
+    @return acc The accuracy of the neural network
+    """
+    hAc = forwardProp(unroll_theta=optTheta, ei=ei, X=X, y=y)
+    pred = hAc[-1]
+    pred = np.argmax(a=pred, axis=0)
+    correct = np.sum(pred == y)
+    return correct*1.0 / y.size
 
 def main():
     # Load the data from the data file
@@ -147,29 +245,41 @@ def main():
     lab_dir = os.path.join(cur_dir, '../data/train-labels-idx1-ubyte')
     timg_dir = os.path.join(cur_dir, '../data/t10k-images-idx3-ubyte')
     tlab_dir = os.path.join(cur_dir, '../data/t10k-labels-idx1-ubyte')
-    X, y = loadlocal_mnist(img_dir=img_dir, lab_dir=lab_dir)
-    tX, ty = loadlocal_mnist(img_dir=timg_dir, lab_dir=tlab_dir)
+    X, y = loadlocal_mnist(images_path=img_dir, labels_path=lab_dir)
+    tX, ty = loadlocal_mnist(images_path=timg_dir, labels_path=tlab_dir)
 
     #### Inputting the parameters of the neural network ####
     ei = {}
     ei['input_dim'] = 784
     ei['output_dim'] = 10
+    ei['layer_sizes'] = []
     try:
-        ei['layer_sizes'] = map(int, raw_input.split("Enter space separated hidden layer sizes"))
+        a = raw_input("Enter space separated hidden layer sizes\n")
+        if a == "":
+            a="256"
+        l = a.split()
+        il = map(int, l)
+        #print il
+        ei['layer_sizes'].extend(il)
+        #print ei['layer_sizes']
     except Exception as e:
-        ei['layer_sizes'] = [256]
+        print "\nInvalid input for layer sizes. Initializing default layer sizes\n"
+        ei['layer_sizes'].append(256)
     ei['layer_sizes'].append(ei['output_dim'])
     try:
-        ei['lambda'] = float(raw_input("Enter the regularization parameter(between 0 and 1)"))
+        ei['lambda'] = float(raw_input("Enter the regularization parameter(between 0 and 1): "))
     except Exception as e:
+        print "\nInvalid regularization parameter. No regularization will be implemented\n"
         ei['lambda'] = 0
     if ei['lambda']<0 or ei['lambda']>1:
         ei['lambda'] = 0
     try:
-        cho = int(raw_input("Enter integer choice of activation for neuron\n1. Sigmoid\n2. tanh\n3. reLU"))
+        cho = int(raw_input("Enter integer choice of activation for neuron\n1. Sigmoid\n2. tanh\n3. reLU\n"))
     except Exception as e:
+        print "\nError in input. Going with default reLU\n"
         cho = 3
     if cho not in [1, 2, 3]:
+        print "\nError invalid input parameter. Going with default reLU\n"
         cho = 3
     if cho == 1:
         ei['activation_fun'] = 'logistic'
@@ -178,9 +288,35 @@ def main():
     else:
         ei['activation_fun'] = 'reLU'
 
+    print "The configuration of the network is as follows\n", ei
+
     # Randomly initialize the weights for all the layers
     stack = initialize_weights(ei=ei)
     params = unroll_stack(stac=stack)
+
+    print "The initial cost is ",costFunc(unroll_theta=params, ei=ei, X=X, y=y)
+    print "The first and the last 5 grads are"
+    gt = gradFunc(unroll_theta=params, ei=ei, X=X, y=y)
+    print gt[:5]," ",gt[-5:]
+
+    # Perform the optimizations
+    t0 = time.time()
+    opt_params = opt.minimize(
+    fun=costFunc,
+    x0=params,
+    args=(ei, X, y),
+    method='L-BFGS-B', jac=gradFunc,
+    options={'disp' : True})
+    t1 = time.time()
+    print "Optimization took %.7f seconds.\n" % (t1-t0)
+    opt_params = opt_params.x
+
+    # Print the training and testing accuracy
+    tr_acc = neural_net_acc(optTheta=opt_params, ei=ei, X=X, y=y)
+    print "Training accuracy: %2.2f%%\n" % (100.0*tr_acc)
+    te_acc = neural_net_acc(optTheta=opt_params, ei=ei, X=tX, y=ty)
+    print "Testing accuracy: %2.2f%%\n" % (100.0*te_acc)
+
 
 if __name__ == '__main__':
     main()

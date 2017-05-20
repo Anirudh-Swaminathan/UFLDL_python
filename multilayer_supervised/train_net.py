@@ -305,8 +305,23 @@ def main():
     fun=costFunc,
     x0=params,
     args=(ei, X, y),
-    method='L-BFGS-B', jac=gradFunc,
-    options={'disp' : True})
+    method='L-BFGS-B',
+    #method='SLSQP', Doesnt work
+    #method='COBYLA', Doesnt work
+    #method='TNC',Doesnt work
+    #method='BFGS',Doesnt work
+    #method='Newton-CG', # Torturously slow
+    jac=gradFunc,
+    options={'disp' : True, 'maxiter' : 200})
+    """
+    opt_params = opt.fmin_l_bfgs_b(
+    func=costFunc,
+    x0=params,
+    fprime=gradFunc,
+    args=(ei, X, y),
+    disp=True,
+    maxfun=1000000)
+    """
     t1 = time.time()
     print "Optimization took %.7f seconds.\n" % (t1-t0)
     opt_params = opt_params.x

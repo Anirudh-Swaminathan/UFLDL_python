@@ -18,14 +18,14 @@ def cnnConvolve(filterDim, numFilters, images, W, b):
     """ Function to return the convolution of the features given by W and b with
         the given images
 
-        @param filterDim Filter(feature) dimensions
-        @param numFilters Number of feature maps
-        @param images large images to convolve with; Matrix in the form
-               images(r, c, numImages)
-        @param W Feature map of shape (filterDim, filterDim, numFilters)
-        @param b Feature map of shape (numFilters)
+    @param filterDim Filter(feature) dimensions
+    @param numFilters Number of feature maps
+    @param images large images to convolve with; Matrix in the form
+           images(r, c, numImages)
+    @param W Feature map of shape (filterDim, filterDim, numFilters)
+    @param b Feature map of shape (numFilters)
 
-        @return convolvedFeatures Matrix of convolved features in the form
+    @return convolvedFeatures Matrix of convolved features in the form
                 convolvedFeatures(imageRow, imageCol, featureNum, imageNum)
     """
     imageDim, _, numImages = images.shape
@@ -44,6 +44,31 @@ def cnnConvolve(filterDim, numFilters, images, W, b):
             convolvedImage = sigmoid(conI)
             convolvedFeatures[:, :, filterNum, imageNum] = convolvedImage
     return convolvedFeatures
+
+def cnnPool(poolDim, convolvedFeatures):
+    """Function to pool the given convolved features
+
+    @param poolDim Dimension of the pooling region
+    @param convolvedFeatures convolved features to pool (as given by cnnConvolve)
+           convolvedFeatures(imageRow, imageCol, featureNum, imageNum)
+
+    @return Matrix of pooled features in the form
+            pooledFeatures(poolRow, poolCol, featureNum, imageNum)
+    """
+    convolvedDim, _, numFilters, numImages = convolvedFeatures.shape
+    pooledFeatures = np.zeros((convolvedDim/poolDim, convolvedDim/poolDim, numFilters, numImages))
+    for imageNum in range(numImages):
+        for filterNum in range(numFilters):
+            pooledImage = np.zeros((convolvedDim/poolDim, convolvedDim,poolDim))
+            im = np.squeeze(convolvedFeatures[:, :, filterNum, imageNum])
+            polI = conv2(in1=im, in2=np.ones((poolDim, poolDim)), mode='valid')
+            #print im.shape, np.ones((poolDim, poolDim)).shape, polI.shape
+            polI = polI[::poolDim, ::poolDim]
+            #print polI.shape
+            polI = polI / float(poolDim**2)
+            #print pooledFeatures.shape
+            pooledFeatures[:, :, filterNum, imageNum] = polI
+    return pooledFeatures
 
 def main():
     # Load the data from the data file
@@ -114,6 +139,24 @@ def main():
             print "Test Feature: %.5f" % (feature)
             return
     print "Congratulations! Your convolution code passed the test."
+    #=========================================================================#
+    ### PART 2:- pooling
+    pooledFeatures = cnnPool(poolDim=poolDim, convolvedFeatures=convolvedFeatures)
+
+    # Check pooling
+    testMatrix = np.reshape(np.array(range(1, 65)), (8, 8), order='F')
+    expectedMatrix = np.array([[np.mean(testMatrix[:4, :4]), np.mean(testMatrix[:4, 4:])] \
+    , [np.mean(testMatrix[4:, :4]), np.mean(testMatrix[4:, 4:])]])
+    testMatrix = np.reshape(testMatrix, (8, 8, 1, 1))
+    pooledFeatures = np.squeeze(cnnPool(poolDim=4, convolvedFeatures=testMatrix))
+    if not np.array_equal(pooledFeatures, expectedMatrix):
+        print "Pooling incorrect"
+        print "Expected"
+        print expectedMatrix
+        print "Got"
+        print pooledFeatures
+        return
+    print "Congratulations! Your pooling code passed the test."
 
 if __name__ == '__main__':
     main()

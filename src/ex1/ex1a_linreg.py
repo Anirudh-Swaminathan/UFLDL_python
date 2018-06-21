@@ -178,7 +178,7 @@ def main():
     plt.legend(loc='upper left')
     plt.ylabel('House price ($1000s)')
     plt.xlabel('House #')
-    op_f_name = os.path.join(dir_name, '../outputs/ex1a_linreg.png')
+    op_f_name = os.path.join(dir_name, '../../outputs/ex1a_linreg.png')
     plt.savefig(op_f_name, bbox_inches='tight')
     plt.show()
     print "Finished plotting the graph"

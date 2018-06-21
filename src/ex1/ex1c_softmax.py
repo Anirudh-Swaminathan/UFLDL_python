@@ -79,10 +79,38 @@ def softGradVec(theta, X, y):
     # Calculate the hypothesis
     epow = np.exp(X.dot(theta))
     #epow = np.insert(epow, epow.shape[1], 1, axis=1)
-    grad = -1.0 * np.transpose(X).dot(ty - epow)
+    h_x = epow / epow.sum(axis=1)[:, None]
+    # grad = -1.0 * np.transpose(X).dot(ty - epow)
+    grad = -1.0 * np.transpose(X).dot(ty - h_x)
     #grad = np.delete(grad, grad.shape[1]-1, axis=1)
     grad = grad.flatten()
     return grad
+
+def grad_check(t0, X, y, num_iters=30):
+    """Check the gradient with numerically computed one, and return average error
+
+    @param t0 The initial theta value
+    @param X The training set features
+    @param y The training set labels(values)
+
+    @return av_er The average error in the computation of the gradient
+    """
+    epsilon = 10**-4
+    s_er = 0
+    n = t0.shape[0]
+    for i in range(num_iters):
+        j = randint(0, n-1)
+        tp = np.copy(t0)
+        tm = np.copy(t0)
+        tp[j] = tp[j] + epsilon
+        tm[j] = tm[j] - epsilon
+        Jtp = softCostVec(theta=tp, X=X, y=y)
+        Jtm = softCostVec(theta=tm, X=X, y=y)
+        g_est = (Jtp - Jtm) / (2.0 * epsilon)
+        g_act = softGradVec(theta=t0, X=X, y=y)
+        s_er += abs(g_act[j] - g_est)
+    av_er = s_er*1.0/num_iters
+    return av_er
 
 def multi_class_accuracy(theta, X, y):
     """Function to Calculate the accuracy of Multiclass classification
@@ -120,6 +148,11 @@ def main():
     # Initialize random weights
     theta = np.random.rand(n, num_classes)*0.001
     print theta.shape
+
+    # Check the gradient before the optimization with the vectorized cost function
+    erro = grad_check(t0=theta.flatten(), num_iters=100, X=train_X, y=train_Y)
+    print "\nThe average error in the gradients is %.6f\n" % (erro)
+    assert erro <= 1e-03, "Error in gradients is too much"
 
     # Perform the optimizations
     t0 = time.time()

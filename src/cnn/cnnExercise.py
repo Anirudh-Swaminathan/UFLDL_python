@@ -59,7 +59,7 @@ def cnnPool(poolDim, convolvedFeatures):
     pooledFeatures = np.zeros((convolvedDim/poolDim, convolvedDim/poolDim, numFilters, numImages))
     for imageNum in range(numImages):
         for filterNum in range(numFilters):
-            pooledImage = np.zeros((convolvedDim/poolDim, convolvedDim,poolDim))
+            pooledImage = np.zeros((convolvedDim/poolDim, convolvedDim/poolDim))
             im = np.squeeze(convolvedFeatures[:, :, filterNum, imageNum])
             polI = conv2(in1=im, in2=np.ones((poolDim, poolDim)), mode='valid')
             #print im.shape, np.ones((poolDim, poolDim)).shape, polI.shape
